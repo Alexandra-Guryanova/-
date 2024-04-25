@@ -17,8 +17,8 @@ bot.
 
 import logging
 
-from telegram import ForceReply, Update # type: ignore
-from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters # type: ignore
+from telegram import ForceReply, Update, InlineKeyboardButton
+from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
 
 # Enable logging
 logging.basicConfig(
@@ -30,10 +30,22 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 
 
+
 # Define a few command handlers. These usually take the two arguments update and
 # context.
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send a message when the command /start is issued."""
+    keyboard = [
+        [
+            InlineKeyboardButton("Коты", callback_data="1"),
+            InlineKeyboardButton("Собаки", callback_data="2"),
+        ],
+        [InlineKeyboardButton("Будь что будет", callback_data="3")],
+         ]
+    [
+         InlineKeyboardButton("Имя котячему", callback_data="4"),
+         InlineKeyboardButton("Имя собачему", callback_data="5"),
+    ],
     user = update.effective_user
     await update.message.reply_html(
         rf"Приветствую {user.mention_html()}!",
