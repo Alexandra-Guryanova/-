@@ -59,12 +59,72 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
 async def about_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send a message when the command /about is issued."""
-    await update.message.reply_text("Я линг кинг екелемене")
+    await update.message.reply_text("я помогу тебе выбрать")
 
 async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Echo the user message."""
     await update.message.reply_text(update.message.text)
+async def button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Parses the CallbackQuery and updates the message text."""
+    query = update.callback_query
 
+folder = ''
+txt = ''
+
+if query.data == '1':
+        folder = 'images/cats'
+elif query.data == '2':
+        folder = 'images/dogs'
+elif query.data == '3':
+        d = []
+        img = 'images'
+        for files in os.scandir(img):
+            d.append(files.name)
+        randfolder = random.choice(d)
+        folder = f'images/{randfolder}'
+elif query.data == '4':
+        txt = open('cat_name.txt', 'r')
+elif query.data == '5':
+        txt = open('dog_name.txt', 'r')
+
+def randomname(txt):
+        t = []
+        for i in txt:
+            t.append(i)
+        name = random.choice(t)
+        return name
+    
+if folder == '':
+        await query.message.reply_text(
+            text = f'Имя: {randomname(txt)}'
+        )                  
+    else:
+        c = []
+        for files in os.scandir(folder):
+            c.append(files.name)
+        image_name = random.choice(c)
+
+        image_path = f'{folder}/{image_name}'
+
+    await query.message.reply_photo(
+        photo=open(image_path, 'rb'),
+    )   
+
+if query.data == '1':
+        txt2 = open('cat_name.txt', 'r')
+        await query.message.reply_text(
+        text=f'Кличка: {randomname(txt2)}'
+        )
+    elif query.data == '2':
+         txt3 = open('dog_name.txt', 'r')
+         await query.message.reply_text(
+         text=f'Кличка: {randomname(txt3)}'
+        )
+    await query.edit_message_text(text=f"Ты выбрал: {query.data}")
+
+async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+     """Displays info on how to use the bot."""
+    await update.message.reply_text("Use /start to test this bot.") 
 
 def main() -> None:
     """Start the bot."""
