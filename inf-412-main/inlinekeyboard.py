@@ -7,11 +7,9 @@ Basic example for a bot that uses inline keyboards. For an in-depth explanation,
  https://github.com/python-telegram-bot/python-telegram-bot/wiki/InlineKeyboard-Example.
 """
 import logging
-import random
-import os
 
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update 
-from telegram.ext import Application, CallbackQueryHandler, CommandHandler, ContextTypes 
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram.ext import Application, CallbackQueryHandler, CommandHandler, ContextTypes, ConversationHandler
 
 # Enable logging
 logging.basicConfig(
@@ -23,108 +21,179 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 
 
+# Stages
+START_ROUTES, END_ROUTES = range(2)
+# Callback data
+STAGE_ONE, STAGE_TWO, STAGE_THREE, STAGE_FOUR = range(4)
+
+actual = {
+    'course': None,
+    'section': None,
+}
+
+def grouped(array, num=3):
+    return [array[i:i+num] for i in range(0, len(array), num)]
+
+
+class Section:
+    id: int
+    name: str
+    text: str = ''
+
+    key = 'section_'
+
+    def __init__(self, id: int, name: str, text: str = ''):
+        self.id = id
+        self.name = name
+        self.text = text
+    
+    def get_inline_button(self):
+        return InlineKeyboardButton(self.name, callback_data=self.key + str(self.id))
+
+
+class Course:
+    id: int
+    name: str
+    sections: list
+    text: str = ''
+
+    key = 'course_'
+
+    def __init__(self, id: int, name: str, sections: list, text=''):
+        self.id = id
+        self.name = name
+        self.sections = sections
+        self.text = text
+
+    @property
+    def route_key(self):
+        return self.key + str(self.id)
+
+    def get_inline_button(self):
+        return InlineKeyboardButton(self.name, callback_data=self.route_key)
+    
+    def get_back_button(self):
+        return InlineKeyboardButton('Назад', callback_data=self.route_key)
+    
+    def get_section_of_string(self, string):
+        pk = get_id_of_str(string, Section.key)
+
+        return get_item_of_list_by_id(self.sections, pk)
+
+
+COURSES = [
+    Course(1, 'Python', [Section(1, 'Урок 1', text='test 1'), Section(2, 'Урок 2', text='test 1'), Section(3, 'Урок 3', text='test 1'), ], text='test 1'),
+    Course(2, 'SQL', [Section(1, 'Урок 1', text='test 1'), Section(2, 'Урок 2', text='test 1'), Section(3, 'Урок 3', text='test 1'), ], text='test 1'),
+    Course(3, 'PHP', [Section(1, 'Урок 1', text='test 1'), Section(2, 'Урок 2'), Section(3, 'Урок 3', text='test 1'), ], text='test 1'),
+    Course(4, 'Telegram', [Section(1, 'Урок 1', text='test 1'), Section(2, 'Урок 2'), Section(3, 'Урок 3', text='test 1'), ], text='test 1'),
+    Course(5, 'HTML', [Section(1, 'Урок 1', text='test 1'), Section(2, 'Урок 2', text='test 1'), Section(3, 'Урок 3', text='test 1'), ], text='test 1'),
+]
+
+def get_id_of_str(string, k = Course.key):
+    return int(string.replace(k, ''))
+
+def get_item_of_list_by_id(items: list, pk: int):
+    for c in items:
+        if c.id == pk:
+            return c
+            
+    return None
+
+def get_course_by_course_key(course_key):
+    pk = get_id_of_str(course_key, Course.key)
+
+    print('pk', pk)
+
+    return get_item_of_list_by_id(COURSES, pk)
+
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Sends a message with three inline buttons attached."""
-    keyboard = [
-        [
-            InlineKeyboardButton("Коты", callback_data="1"),
-            InlineKeyboardButton("Собаки", callback_data="2"),
-        ],
-        [InlineKeyboardButton("Будь что будет", callback_data="3")],
-         ]
-    [
-         InlineKeyboardButton("Имя котячему", callback_data="4"),
-         InlineKeyboardButton("Имя собачему", callback_data="5"),
-    ],
 
+    courses = grouped([c.get_inline_button() for c in COURSES], 3)
+
+    keyboard = courses
 
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    await update.message.reply_text("Выбирай", reply_markup=reply_markup)
+    await update.message.reply_text("Выберите курс:", reply_markup=reply_markup)
 
-async def button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Parses the CallbackQuery and updates the message text."""
+    return START_ROUTES
+
+
+async def course_detail(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Show new choice of buttons"""
     query = update.callback_query
+    course = get_course_by_course_key(query.data)
 
-    # CallbackQueries need to be answered, even if no notification to the user is needed
-    # Some clients may have trouble otherwise. See https://core.telegram.org/bots/api#callbackquery
-    await query.answer()
+    print(course)
 
-    folder = ''
-    txt = ''
+    actual['course'] = course
 
-    if query.data == '1':
-        folder = 'images/cats'
-    elif query.data == '2':
-        folder = 'images/dogs'
-    elif query.data == '3':
-        d = []
-        img = 'images'
-        for files in os.scandir(img):
-            d.append(files.name)
-        randfolder = random.choice(d)
-        folder = f'images/{randfolder}'
-    elif query.data == '4':
-        txt = open('cat_name.txt', 'r')
-    elif query.data == '5':
-        txt = open('dog_name.txt', 'r')
-
-    def randomname(txt):
-        t = []
-        for i in txt:
-            t.append(i)
-        name = random.choice(t)
-        return name
+    # print(
+    #     actual
+    # )
     
-    if folder == '':
-        await query.message.reply_text(
-            text = f'Имя: {randomname(txt)}'
-        )                  
-    else:
-        c = []
-        for files in os.scandir(folder):
-            c.append(files.name)
-        image_name = random.choice(c)
+    section_keyboard = grouped([s.get_inline_button() for s in course.sections], 3)
 
-        image_path = f'{folder}/{image_name}'
+    await query.answer()
+    keyboard = section_keyboard
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await query.edit_message_text(
+        text=f'Курс по: {course.name} \n {course.text}', reply_markup=reply_markup
+    )
+    return START_ROUTES
 
+async def section_detail(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Show new choice of buttons"""
+    query = update.callback_query  # example: section_1
+    # course = get_course_by_course_key(query.data)
+    course = actual['course']
+    section = course.get_section_of_string(query.data)
 
-    await query.message.reply_photo(
-        photo=open(image_path, 'rb'),
-    )   
-
-    if query.data == '1':
-        txt2 = open('cat_name.txt', 'r')
-        await query.message.reply_text(
-        text=f'Кличка: {randomname(txt2)}'
-        )
-    elif query.data == '2':
-         txt3 = open('dog_name.txt', 'r')
-         await query.message.reply_text(
-         text=f'Кличка: {randomname(txt3)}'
-        )
-    await query.edit_message_text(text=f"Ты выбрал: {query.data}")
-
-
-
-    async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-     """Displays info on how to use the bot."""
-    await update.message.reply_text("Use /start to test this bot.") 
+    # section_keyboard = grouped([s.get_inline_button() for s in course.sections], 3)
+    section_keyboard = [
+        [
+            course.get_back_button()
+        ]
+    ]
+    await query.answer()
+    keyboard = section_keyboard
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await query.edit_message_text(
+        text=f'{section.name} \n {section.text}', reply_markup=reply_markup
+    )
+    return START_ROUTES
 
 
-    def main() -> None:
-        """Run the bot."""
-        # Create the Application and pass it your bot's token.
-        TOKEN = '7176736526:AAEoduYSvuqzPi_1jfPniMomlMX1MlUUR5E'
-        application = Application.builder().token(TOKEN).build()
-  
-        application.add_handler(CommandHandler("start", start))
-        application.add_handler(CallbackQueryHandler(button))
-        application.add_handler(CommandHandler("help", help_command))
+def main() -> None:
+    """Run the bot."""
+    # Create the Application and pass it your bot's token.
+    TOKEN = '7176736526:AAEoduYSvuqzPi_1jfPniMomlMX1MlUUR5E'
+    
+    application = Application.builder().token(TOKEN).build()
 
-        # Run the bot until the user presses Ctrl-C
-        application.run_polling(allowed_updates=Update.ALL_TYPES)
+    conv_handler = ConversationHandler(
+        entry_points=[CommandHandler("start", start)],
+        states={
+            START_ROUTES: [
+                CallbackQueryHandler(course_detail, pattern="^" + Course.key),
+                CallbackQueryHandler(section_detail, pattern="^" + Section.key),
+            ],
+            # END_ROUTES: [
+                # CallbackQueryHandler(start_over, pattern="^" + str(ONE) + "$"),
+                # CallbackQueryHandler(end, pattern="^" + str(TWO) + "$"),
+            # ],
+        },
+        fallbacks=[CommandHandler("start", start)],
+    )
+
+    # Add ConversationHandler to application that will be used for handling updates
+    application.add_handler(conv_handler)
+
+    # Run the bot until the user presses Ctrl-C
+    application.run_polling(allowed_updates=Update.ALL_TYPES)
 
 
-        if __name__ == "__main__":
-         main()
+if __name__ == "__main__":
+    main()
